@@ -26,7 +26,7 @@ def get_impulse_sum_optimized(f_c, f_s, alpha, beta, delta=0.05):
     return sum_calculator
 
 def calculate_delta(eigenvalues):
-    return min(2 / (5 * max(abs(eigenvalues.real))), np.pi / (5 * max(abs(eigenvalues.real))))
+    return min(2 / (5 * max(abs(eigenvalues.real))), np.pi / (5 * max(abs(eigenvalues.imag))))
 
 
 class InitialImpulse(object):
@@ -66,12 +66,13 @@ def generate_cost_func(support, complexity):
     return approximator
 
 Q = 6
-appr = generate_cost_func(arange(0, 500, 1), Q)
+N = 500
+appr = generate_cost_func(arange(0, N, 1), Q)
 f_cc = impulse.f_cc[impulse.eigenvalues.real == 0]
 f_ss = impulse.f_ss[impulse.eigenvalues.real == 0]
 alpha = zeros(Q)
 beta = impulse.eigenvalues[impulse.eigenvalues.real == 0].imag
-init_params = concatenate((f_cc, f_ss, alpha, beta))
+init_params = concatenate((f_cc-0.1, f_ss, alpha-0.1, beta-0.1))
 #print(appr(init_params))
 solution = sp.optimize.fmin_bfgs(appr, init_params)
 #print(solution.reshape((4, Q)))
@@ -79,7 +80,8 @@ solution = sp.optimize.fmin_bfgs(appr, init_params)
 y_appr = get_impulse_sum_optimized(*solution.reshape((4, Q)), impulse.delta)
 
 figure(figsize=(15,10))
-X = arange(0, 500, 1)
-plot(X, impulse.functor()(X))
+X = arange(0, N, 1)
+y_real = impulse.functor()(X)
+plot(X, y_real)
 plot(X, y_appr(X))
 show()
