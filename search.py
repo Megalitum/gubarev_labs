@@ -104,7 +104,7 @@ class Search_Optimum(object):
             # remember: assign variable in numpy as reference
             if (rss < self.rss):
                 self.theta = theta[0]
-                self.rss = rss
+                self.rss = rss.copy()
                 self.alpha_best = self.alpha.copy()
                 self.beta_best = self.beta.copy()
                 self.y_appr = y_appr.copy()
@@ -134,13 +134,12 @@ class Search_Optimum(object):
     def params(self):
         return np.concatenate((self.theta,self.alpha_best,self.beta_best)),\
 
-    def y_appr(self):
-        return self.y_appr
+
 
 def test():
-    N = 500
+    N = 300
     Q = 2
-    h = np.array([0.1, 0.1])
+    h = np.array([0.02, 0.02])
     # np.save('search_test_data/y_10.npy', y_real)
     npzfiles = np.load('lab1_data/x-y-500.npz')
     x = npzfiles['x'][:N]
@@ -152,19 +151,22 @@ def test():
     search = Search_Optimum(Q, h, alpha_c, beta_c, x, y)
     search.iterate()
     params = search.params()
-    y_appr = search.y_appr()
-    plot_y(x, y, y_appr)
+    y_appr = search.y_appr
+    print('rss=', search.rss)
+    plot_y(np.arange(0,N,1), y, y_appr,search.rss)
 
     #print(search)
     #print(search.params())
     #return search.params()
 
-def plot_y(x, y, y_appr):
+def plot_y(x, y, y_appr,rss = 0.0):
     figure(figsize=(15,10))
     #print('y_real:\n',y_real[:50])
     plot(x, y,'-r', label='real')
     plot(x, y_appr,'-b', label = 'approximation')
+    annotate('rss = '+str(rss), (1, 7), backgroundcolor='w')
     legend(loc='upper right')
+
     show()
 
 test()
