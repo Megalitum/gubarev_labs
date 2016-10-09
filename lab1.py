@@ -40,6 +40,7 @@ class ObservableSystem(object):
             self.f_cc = load('lab1_data/f_c.npy')
             self.f_ss = load('lab1_data/f_s.npy')
         else:
+            # TODO: Fix f generation bug (mult by taylor).
             cnt = Counter(eigenvalues)
             unique_eigenvalues = cnt.keys()
             eigen_count = len(unique_eigenvalues)
@@ -79,6 +80,24 @@ def generate_cost_func(domain, complexity, type='l2'):
             approx = impulse(domain, vec, delta)
             return mean((noisy - approx)**2)
         return cost_func
+    else:
+        raise NotImplemented()
+
+def generate_cost_func_jac(domain, complexity, type='l2'):
+    """
+    Cost function Jacobian builder.
+    """
+    noisy = observable(domain)
+    delta = observable.delta
+    if type == 'l_inf':
+        return None
+    elif type == 'l2':
+        return None
+        # TODO: Implement Jacobian in L2 case.
+        def cost_func(vec):
+            approx = impulse(domain, vec, delta)
+            return mean((noisy - approx)**2)
+        return cost_func
 
 def starting_points(Q):
     # yield concatenate(([1,1,-1,1,1,-1,1,-1,-1,1,1,-1], zeros(Q*2)))
@@ -87,15 +106,17 @@ def starting_points(Q):
     for f_vec in f_gen:
         yield concatenate((f_vec, zeros(Q*2)))
 
+# TODO: Create a generator which will produce step-by-step approximation.
 Q = 6
 N = 500
 domain = arange(0, N, 1)
 cost_func = generate_cost_func(domain, Q)
+cost_func_jac = generate_cost_func_jac(domain, Q)
 solution = None
 st_point = None
 for start_point in starting_points(Q):
     print('bump')
-    sol = optimize.minimize(cost_func, start_point, method='BFGS',
+    sol = optimize.minimize(cost_func, start_point, jac=cost_func_jac, method='BFGS',
                                  options={'maxiter': 10000})
     if solution is None or solution.fun > sol.fun:
         solution = sol
