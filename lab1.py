@@ -15,9 +15,9 @@ def generate_f(size):
     return arr
 
 
-def get_impulse(params, delta=0.05):
+def impulse(x, params, delta=0.05):
     """
-    Creates sum calculator with given parameters and returns it.
+    Creates impulse reaction with given parameters and returns it.
     Assumes it's argument has `params = (f_c, f_s, alpha, beta)` structure.
     f_c = params[:q]
     f_s = params[q:2*q]
@@ -27,34 +27,13 @@ def get_impulse(params, delta=0.05):
     q = params.shape[0] // 4
     a_d = delta * params[2 * q:3 * q]
     b_d = delta * params[3 * q:]
-    def sum_calculator(x):
-        x_b = x[:, newaxis] * b_d
-        coef = params[:q] * np.cos(x_b) + params[q:2*q] * np.sin(x_b)
-        exp_val = np.exp(- x[:, newaxis] * a_d)
-        return sum(multiply(coef, exp_val), axis=1)
-    return sum_calculator
-
-def get_impulse_jacobian(params, delta=0.05):
-    """
-    Creates sum calculator with given parameters and returns it.
-    Assumes it's argument has `params = (f_c, f_s, alpha, beta)` structure.
-    f_c = params[:q]
-    f_s = params[q:2*q]
-    alpha = params[2*q:3*q]
-    beta = params[3*q:]
-    """
-    q = params.shape[0] // 4
-    a_d = delta * params[2 * q:3 * q]
-    b_d = delta * params[3 * q:]
-    def sum_calculator(x):
-        x_b = x[:, newaxis] * b_d
-        coef = params[:q] * np.cos(x_b) + params[q:2*q] * np.sin(x_b)
-        exp_val = np.exp(- x[:, newaxis] * a_d)
-        return sum(multiply(coef, exp_val), axis=1)
-    return sum_calculator
+    x_b = x[:, newaxis] * b_d
+    coef = params[:q] * np.cos(x_b) + params[q:2*q] * np.sin(x_b)
+    exp_val = np.exp(- x[:, newaxis] * a_d)
+    return sum(multiply(coef, exp_val), axis=1)
 
 
-class InitialImpulse(object):
+class ObservableSystem(object):
     def __init__(self, eigenvalues=None):
         if eigenvalues is None:
             self.eigenvalues = load('lab1_data/points.npy')
@@ -77,38 +56,41 @@ class InitialImpulse(object):
     def calculate_delta(self):
         return min(2 / (5 * max(abs(self.eigenvalues.real))), np.pi / (5 * max(abs(self.eigenvalues.imag))))
 
-    def __call__(self):
-        return get_impulse(concatenate((self.f_cc, self.f_ss,
-                                        -self.eigenvalues.real, self.eigenvalues.imag)), self.delta)
+    def __call__(self, x):
+        params = concatenate((self.f_cc, self.f_ss, -self.eigenvalues.real, self.eigenvalues.imag))
+        return impulse(x, params, self.delta)
 
-impulse = InitialImpulse()
+observable = ObservableSystem()
 
 
-def generate_cost_func(support, complexity, type='l2'):
+def generate_cost_func(domain, complexity, type='l2'):
     """
     Cost function builder.
     """
-    noisy = impulse()(support)
-    delta = impulse.delta
-    if type == 'l1':
+    noisy = observable(domain)
+    delta = observable.delta
+    if type == 'l_inf':
         def cost_func(vec):
-            return mean(abs(noisy - get_impulse(vec, delta)(support)))
+            approx = impulse(domain, vec, delta)
+            return max(abs(noisy - approx))
         return cost_func
     elif type == 'l2':
         def cost_func(vec):
-            return mean((noisy - get_impulse(vec, delta)(support))**2)
+            approx = impulse(domain, vec, delta)
+            return mean((noisy - approx)**2)
         return cost_func
 
 def starting_points(Q):
-    yield concatenate(([1,1,-1,1,1,-1,1,-1,-1,1,1,-1], zeros(Q*2)))
-    return
+    # yield concatenate(([1,1,-1,1,1,-1,1,-1,-1,1,1,-1], zeros(Q*2)))
+    # return
     f_gen = itertools.product(*itertools.tee([-1, 1], Q*2))
     for f_vec in f_gen:
         yield concatenate((f_vec, zeros(Q*2)))
 
 Q = 6
 N = 500
-cost_func = generate_cost_func(arange(0, N, 1), Q)
+domain = arange(0, N, 1)
+cost_func = generate_cost_func(domain, Q)
 solution = None
 st_point = None
 for start_point in starting_points(Q):
@@ -122,12 +104,11 @@ for start_point in starting_points(Q):
 print('Found solution:', solution.x)
 print('With f=', solution.fun)
 print('Starting from: ', st_point)
-y_appr = get_impulse(solution.x, impulse.delta)
+y_appr = impulse(domain, solution.x, observable.delta)
 
-#figure(figsize=(16,9))
-#X = arange(0, N, 1)
-#y_real = impulse()(X)
-# plot(X, y_real,'-r', label='real')
-# plot(X, y_appr(X),'-b', label = 'approximation')
-# legend(loc='upper right')
-# show()
+figure(figsize=(16,9))
+y_real = observable(domain)
+plot(domain, y_real,'-r', label='real')
+plot(domain, y_appr,'-b', label = 'approximation')
+legend(loc='upper right')
+show()
