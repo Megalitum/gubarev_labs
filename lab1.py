@@ -15,7 +15,7 @@ def generate_f(size):
     return arr
 
 
-def impulse(x, params, delta=0.05):
+def impulse_vec(x, params, delta=0.05):
     """
     Creates impulse reaction with given parameters and returns it.
     Assumes it's argument has `params = (f_c, f_s, alpha, beta)` structure.
@@ -30,6 +30,41 @@ def impulse(x, params, delta=0.05):
     x_b = x[:, newaxis] * b_d
     coef = params[:q] * np.cos(x_b) + params[q:2*q] * np.sin(x_b)
     exp_val = np.exp(- x[:, newaxis] * a_d)
+    return sum(multiply(coef, exp_val), axis=1)
+
+
+def impulse_with_gradient(x, params, delta=0.05):
+    """
+    Creates impulse reaction with given parameters and returns it.
+    Assumes it's argument has `params = [f_c, f_s, alpha, beta]` structure.
+    f_c = params[0]
+    f_s = params[1]
+    alpha = params[2]
+    beta = params[3]
+    """
+    x_scaled = x * delta
+    x_b = x_scaled * params[3]
+    exp_val = np.exp(- x_scaled * params[2])
+    dfc = exp_val * cos(x_b)
+    dfs = exp_val * sin(x_b)
+    exp_coef = params[0] * np.cos(x_b) + params[1] * np.sin(x_b)
+    da = - exp_coef * x_scaled
+    db = exp_val * (params[1] * np.cos(x_b) - params[0] * np.sin(x_b)) * x_scaled
+    return exp_coef * exp_val, vstack((dfc, dfs, da, db))
+
+def impulse(x, params, delta=0.05):
+    """
+    Creates impulse reaction with given parameters and returns it.
+    Assumes it's argument has `params = [f_c, f_s, alpha, beta]` structure.
+    f_c = params[0]
+    f_s = params[1]
+    alpha = params[2]
+    beta = params[3]
+    """
+    a_d = delta * params[2]
+    x_b = x * delta * params[3]
+    coef = params[0] * np.cos(x_b) + params[1] * np.sin(x_b)
+    exp_val = np.exp(- x * a_d)
     return sum(multiply(coef, exp_val), axis=1)
 
 
@@ -59,77 +94,68 @@ class ObservableSystem(object):
 
     def __call__(self, x):
         params = concatenate((self.f_cc, self.f_ss, -self.eigenvalues.real, self.eigenvalues.imag))
-        return impulse(x, params, self.delta)
+        return impulse_vec(x, params, self.delta)
 
 observable = ObservableSystem()
 
 
-def generate_cost_func(domain, complexity, type='l2'):
+def generate_cost_func(domain, noisy, type='l2', delta=0.05):
     """
     Cost function builder.
+    Assumes vec has (4,) shape.
+    vec[0] = f_c
+    vec[1] = f_s
+    vec[2] = alpha
+    vec[3] = beta
     """
-    noisy = observable(domain)
-    delta = observable.delta
     if type == 'l_inf':
         def cost_func(vec):
             approx = impulse(domain, vec, delta)
-            return max(abs(noisy - approx))
+            return max(abs(noisy - approx)) / domain.shape[0]
         return cost_func
     elif type == 'l2':
         def cost_func(vec):
-            approx = impulse(domain, vec, delta)
-            return mean((noisy - approx)**2)
+            approx, gradient = impulse_with_gradient(domain, vec, delta)
+            return sum((noisy - approx)**2)#, 2 * ((approx - noisy) * gradient).sum(axis=1)
         return cost_func
     else:
         raise NotImplemented()
 
-def generate_cost_func_jac(domain, complexity, type='l2'):
-    """
-    Cost function Jacobian builder.
-    """
+def starting_points(count):
+    yield from itertools.product([1], [1], np.random.uniform(0, 10, count), np.random.uniform(-5, 5, count))
+
+
+def perform_approximaiton(domain, max_q, type='l2'):
+    cost_func_jac = type == 'l2'
     noisy = observable(domain)
-    delta = observable.delta
-    if type == 'l_inf':
-        return None
-    elif type == 'l2':
-        return None
-        # TODO: Implement Jacobian in L2 case.
-        def cost_func(vec):
-            approx = impulse(domain, vec, delta)
-            return mean((noisy - approx)**2)
-        return cost_func
+    for q in range(max_q):
+        cost_func = generate_cost_func(domain, noisy, type)
+        best_sol = None
+        for start_point in starting_points(10):
+            sol = optimize.minimize(cost_func, start_point, jac=False, method='L-BFGS-B',
+                                    bounds=((-1, 1), (-1, 1), (0, None), (None, None)),
+                                 options={'maxiter': 100000})
+            if best_sol is None or sol.fun < best_sol.fun:
+                best_sol = sol
+        noisy -= impulse_vec(domain, best_sol.x, observable.delta)
+        print("Status: ", best_sol.message)
+        print("f, f':", cost_func(best_sol.x))
+        yield best_sol
 
-def starting_points(Q):
-    # yield concatenate(([1,1,-1,1,1,-1,1,-1,-1,1,1,-1], zeros(Q*2)))
-    # return
-    f_gen = itertools.product(*itertools.tee([-1, 1], Q*2))
-    for f_vec in f_gen:
-        yield concatenate((f_vec, zeros(Q*2)))
-
-# TODO: Create a generator which will produce step-by-step approximation.
-Q = 6
+max_q = 8
 N = 500
-domain = arange(0, N, 1)
-cost_func = generate_cost_func(domain, Q)
-cost_func_jac = generate_cost_func_jac(domain, Q)
-solution = None
-st_point = None
-for start_point in starting_points(Q):
-    print('bump')
-    sol = optimize.minimize(cost_func, start_point, jac=cost_func_jac, method='BFGS',
-                                 options={'maxiter': 10000})
-    if solution is None or solution.fun > sol.fun:
-        solution = sol
-        st_point = start_point
-
-print('Found solution:', solution.x)
-print('With f=', solution.fun)
-print('Starting from: ', st_point)
-y_appr = impulse(domain, solution.x, observable.delta)
-
-figure(figsize=(16,9))
-y_real = observable(domain)
-plot(domain, y_real,'-r', label='real')
-plot(domain, y_appr,'-b', label = 'approximation')
-legend(loc='upper right')
-show()
+domain = arange(1, N + 1, 1)
+result = None
+type = 'l2'
+for q, solution in enumerate(perform_approximaiton(domain, max_q, type)):
+    if result is None:
+        result = solution.x[:, newaxis]
+    else:
+        result = np.append(result, solution.x[:, newaxis], axis=1)
+    y_real = observable(domain)
+    y_appr = impulse_vec(domain, result.ravel(), observable.delta)
+    plot(domain, y_real, '-r', label='real')
+    plot(domain, y_appr, '-b', label='approximation')
+    legend(loc='upper right')
+    title(str(q + 1))
+    show()
