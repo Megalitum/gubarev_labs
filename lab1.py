@@ -116,25 +116,25 @@ def generate_cost_func(domain, noisy, type='l2', delta=0.05):
     elif type == 'l2':
         def cost_func(vec):
             approx, gradient = impulse_with_gradient(domain, vec, delta)
-            return sum((noisy - approx)**2)#, 2 * ((approx - noisy) * gradient).sum(axis=1)
+            return sum((noisy - approx)**2), 2 * ((approx - noisy) * gradient).sum(axis=1)
         return cost_func
     else:
         raise NotImplemented()
 
-def starting_points(count):
-    yield from itertools.product([1], [1], np.random.uniform(0, 10, count), np.random.uniform(-5, 5, count))
+def starting_points():
+    yield from itertools.product([1], [1], arange(0,7,1), arange(-5,6,1))
 
 
 def perform_approximaiton(domain, max_q, type='l2'):
-    cost_func_jac = type == 'l2'
+    minimizer_kwargs = {"method":"L-BFGS-B", "jac":type == 'l2',
+                        "bounds":((None, None), (None, None), (0, 6), (-10, 10))}
     noisy = observable(domain)
     for q in range(max_q):
         cost_func = generate_cost_func(domain, noisy, type)
         best_sol = None
-        for start_point in starting_points(10):
-            sol = optimize.minimize(cost_func, start_point, jac=False, method='L-BFGS-B',
-                                    bounds=((-1, 1), (-1, 1), (0, None), (None, None)),
-                                 options={'maxiter': 100000})
+        for start_point in starting_points():
+            print('>', best_sol.fun if best_sol is not None else None)
+            sol = optimize.basinhopping(cost_func, start_point, minimizer_kwargs=minimizer_kwargs)
             if best_sol is None or sol.fun < best_sol.fun:
                 best_sol = sol
         noisy -= impulse_vec(domain, best_sol.x, observable.delta)
