@@ -13,9 +13,22 @@ def plot_y(x, y, y_appr, rss=0.0):
 
     show()
 
+def plot_lambda(x, y, x_appr, y_appr):
+    figure(figsize=(15, 10))
+    # print('y_real:\n',y_real[:50])
+    plot(x, y, 'go', color = (1,0,0),label='real')
+    plot(x_appr, y_appr, 'go', color=(0,0,1), label='approximation')
+    legend(loc='upper right')
+
+    show()
+
 class Search_Min(object):
     def __init__(self, x, y, Q, fc=None, fs=None, alpha=None, beta=None,\
                  fc_c=None, fs_c=None, alpha_c=None, beta_c=None):
+        """
+        init object
+        fc, fs, alpha, beta: initial params
+        """
         self.x = x
         self.y = y
         self.Q = Q
@@ -191,7 +204,7 @@ class Search_Min(object):
 
         def print_fun(x, f, accepted):
             print("at minimum %.4f accepted %d" % (f, int(accepted)))
-        res = basinhopping(self.sum_squered()[2], self.params, niter=1000, \
+        res = basinhopping(self.sum_squered()[2], self.params, niter=300, \
                            minimizer_kwargs=minimizer_kwargs, stepsize=0.05, callback=print_fun)
 
         print(res.x, res.fun)
@@ -255,15 +268,17 @@ def test_methods():
     alpha = -eigenvalues.real
     beta = eigenvalues.imag
 
-    Q=5
-    alpha = np.random.random(Q)
-    beta = np.random.random(Q)
+    Q=10
+    np.random.seed(0)
+    alpha = np.random.random(Q)*7
+    beta = np.random.random(Q)*10
 
     min = Search_Min(x, y, Q, f_cc[:Q], f_ss[:Q], alpha, beta,\
                      #fc_c=np.array([-1.2,1.2]), fs_c=np.array([-1.2,1.2]),\
                      alpha_c=np.array([0,7]), beta_c=np.array([0,10]))
     res = min.min_basinhopping()
     y_appr = min.y_params()[0](res.x)
+    lamb = res.x
 
     #res = min.min_neldermead()
     #y_appr = min.y_params()[0](res.x)
@@ -275,6 +290,7 @@ def test_methods():
     #y_appr = min.y_params()[0](res.x)
 
     plot_y(np.arange(0, y.size, 1), y, y_appr)
+    plot_lambda(-eigenvalues[eigenvalues.imag>=0].real, eigenvalues[eigenvalues.imag>=0].imag, lamb[2*Q:3*Q], lamb[3*Q:])
 test_methods()
 
 
