@@ -5,6 +5,34 @@ import seaborn as sns
 from collections import Counter
 import itertools
 
+class ObservableSystem(object):
+    def __init__(self, eigenvalues=None):
+        if eigenvalues is None:
+            self.eigenvalues = load('lab1_data/points.npy')
+            self.f_cc = load('lab1_data/f_c.npy')
+            self.f_ss = load('lab1_data/f_s.npy')
+        else:
+            # TODO: Fix f generation bug (mult by taylor).
+            cnt = Counter(eigenvalues)
+            unique_eigenvalues = cnt.keys()
+            eigen_count = len(unique_eigenvalues)
+            f_c, f_s = generate_f((2, eigen_count))
+            self.eigenvalues = concatenate(tuple(repeat(value, cnt[value]) for value in unique_eigenvalues))
+            self.f_cc = concatenate(tuple(repeat(f_c[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
+            self.f_ss = concatenate(tuple(repeat(f_s[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
+        self.delta = self.calculate_delta()
+        print('Eigenvalues: ', self.eigenvalues)
+        print('f_c: ', self.f_cc)
+        print('f_s: ', self.f_ss)
+        print('Delta: ', self.delta)
+
+    def calculate_delta(self):
+        return min(2 / (5 * max(abs(self.eigenvalues.real))), np.pi / (5 * max(abs(self.eigenvalues.imag))))
+
+    def __call__(self, x):
+        params = concatenate((self.f_cc, self.f_ss, -self.eigenvalues.real, self.eigenvalues.imag))
+        return impulse_vec(x, params, self.delta)
+
 
 def generate_f(size):
     """
@@ -68,34 +96,6 @@ def impulse(x, params, delta=0.05):
     return sum(multiply(coef, exp_val), axis=1)
 
 
-class ObservableSystem(object):
-    def __init__(self, eigenvalues=None):
-        if eigenvalues is None:
-            self.eigenvalues = load('lab1_data/points.npy')
-            self.f_cc = load('lab1_data/f_c.npy')
-            self.f_ss = load('lab1_data/f_s.npy')
-        else:
-            # TODO: Fix f generation bug (mult by taylor).
-            cnt = Counter(eigenvalues)
-            unique_eigenvalues = cnt.keys()
-            eigen_count = len(unique_eigenvalues)
-            f_c, f_s = generate_f((2, eigen_count))
-            self.eigenvalues = concatenate(tuple(repeat(value, cnt[value]) for value in unique_eigenvalues))
-            self.f_cc = concatenate(tuple(repeat(f_c[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
-            self.f_ss = concatenate(tuple(repeat(f_s[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
-        self.delta = self.calculate_delta()
-        print('Eigenvalues: ', self.eigenvalues)
-        print('f_c: ', self.f_cc)
-        print('f_s: ', self.f_ss)
-        print('Delta: ', self.delta)
-
-    def calculate_delta(self):
-        return min(2 / (5 * max(abs(self.eigenvalues.real))), np.pi / (5 * max(abs(self.eigenvalues.imag))))
-
-    def __call__(self, x):
-        params = concatenate((self.f_cc, self.f_ss, -self.eigenvalues.real, self.eigenvalues.imag))
-        return impulse_vec(x, params, self.delta)
-
 observable = ObservableSystem()
 
 
@@ -122,11 +122,11 @@ def generate_cost_func(domain, noisy, type='l2', delta=0.05):
         raise NotImplemented()
 
 def starting_points():
-    yield from itertools.product([1], [1], arange(0,7,1), arange(-5,6,1))
+    yield from itertools.product([-1, 1], [-1, 1], [0], [4])
 
 
 def perform_approximaiton(domain, max_q, type='l2'):
-    minimizer_kwargs = {"method":"L-BFGS-B", "jac":type == 'l2',
+    minimizer_kwargs = {"method":"SLSQP", "jac":type == 'l2',
                         "bounds":((None, None), (None, None), (0, 6), (-10, 10))}
     noisy = observable(domain)
     for q in range(max_q):
