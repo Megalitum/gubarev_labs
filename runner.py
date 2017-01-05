@@ -301,8 +301,8 @@ def print_stats(method, T, err_gen, eps, delta, h_low, h_up, task, times):
     assert(len(series) == len(h_low))
     match_percent, cover_percent, r2, stdev, *other = test_h_prediction(series_real, h_real, series, h_low, h_up)
     time = timeit.timeit('measured_task()', number=times, globals=dict(measured_task=task)) / times
-    print('Method: %d; T: %0.2f; Error: %s; Eps: %0.2f; Delta: %0.5f; Coverage: %0.2f%%; Match: %0.2f%%; R2: %0.4f; Std: %0.4f; Avg.time: %fs' %
-          (method, T, err_name, eps, delta, cover_percent, match_percent, r2, stdev, time))
+    # print('Method: %d; T: %0.2f; Error: %s; Eps: %0.2f; Delta: %0.5f; Coverage: %0.2f%%; Match: %0.2f%%; R2: %0.4f; Std: %0.4f; Avg.time: %fs' %
+    #      (method, T, err_name, eps, delta, cover_percent, match_percent, r2, stdev, time))
     return delta, cover_percent, match_percent, r2, stdev, time, other
 
 def test_h_prediction(series_real, h_real, series, h_low, h_up):
