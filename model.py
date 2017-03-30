@@ -1,0 +1,48 @@
+from pylab import *
+
+
+class ObservableSystem(object):
+    def __init__(self, eigenvalues=None):
+        if eigenvalues is None:
+            self.eigenvalues = load('lab1_data/points.npy')
+            self.f_cc = load('lab1_data/f_c.npy')
+            self.f_ss = load('lab1_data/f_s.npy')
+        else:
+            # TODO: Fix f generation bug (mult by taylor).
+            cnt = Counter(eigenvalues)
+            unique_eigenvalues = cnt.keys()
+            eigen_count = len(unique_eigenvalues)
+            f_c, f_s = generate_f((2, eigen_count))
+            self.eigenvalues = concatenate(tuple(repeat(value, cnt[value]) for value in unique_eigenvalues))
+            self.f_cc = concatenate(tuple(repeat(f_c[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
+            self.f_ss = concatenate(tuple(repeat(f_s[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
+        self.delta = self.calculate_delta()
+        print('Eigenvalues: ', self.eigenvalues)
+        print('f_c: ', self.f_cc)
+        print('f_s: ', self.f_ss)
+        print('Delta: ', self.delta)
+
+    @staticmethod
+    def response(x, params, delta=0.05):
+        """
+        Creates impulse reaction with given parameters and returns it.
+        Assumes it's argument has `params = (f_c, f_s, alpha, beta)` structure.
+        f_c = params[:q]
+        f_s = params[q:2*q]
+        alpha = params[2*q:3*q]
+        beta = params[3*q:]
+        """
+        q = params.shape[0] // 4
+        a_d = delta * params[2 * q:3 * q]
+        b_d = delta * params[3 * q:]
+        x_b = x[:, newaxis] * b_d
+        coef = params[:q] * np.cos(x_b) + params[q:2 * q] * np.sin(x_b)
+        exp_val = np.exp(- x[:, newaxis] * a_d)
+        return sum(multiply(coef, exp_val), axis=1)
+
+    def calculate_delta(self):
+        return min(2 / (5 * max(abs(self.eigenvalues.real))), np.pi / (5 * max(abs(self.eigenvalues.imag))))
+
+    def __call__(self, x):
+        params = concatenate((self.f_cc, self.f_ss, -self.eigenvalues.real, self.eigenvalues.imag))
+        return self.response(x, params, self.delta)
