@@ -6,6 +6,10 @@ from model import ObservableSystem
 
 observable = ObservableSystem()
 
+# TODO: add Hankel's matrix method
+# TODO: add more sophisticated initial point prediction
+# TODO: add smoothing factor (e.g. build smoothing spline and call optimization on first approximation)
+# TODO: add current error roots calculation to predict most relevant harmonic component
 
 def generate_cost_func(domain, noisy, type='l2', delta=0.05):
     """
@@ -66,4 +70,8 @@ for q, solution in enumerate(perform_approximaiton(domain, max_q, norm_type)):
     plot(domain, y_appr, '-b', label='approximation')
     legend(loc='upper right')
     title(str(q + 1))
-    show()
+    figure()
+    plot(domain, y_real - y_appr, 'g')
+    title('Noise %d' % (q+1))
+    savefig('lab1_out/noise_%s.png' % (q+1))
+    #show()
