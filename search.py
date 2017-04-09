@@ -3,6 +3,7 @@ from  scipy.optimize import basinhopping, minimize, fmin_bfgs
 from matplotlib import *
 from matplotlib.pyplot import *
 
+
 def plot_y(x, y, y_appr, rss=0.0):
     figure(figsize=(15, 10))
     # print('y_real:\n',y_real[:50])
@@ -13,17 +14,19 @@ def plot_y(x, y, y_appr, rss=0.0):
 
     show()
 
+
 def plot_lambda(x, y, x_appr, y_appr):
     figure(figsize=(15, 10))
     # print('y_real:\n',y_real[:50])
-    plot(x, y, 'go', color = (1,0,0),label='real')
-    plot(x_appr, y_appr, 'go', color=(0,0,1), label='approximation')
+    plot(x, y, 'go', color=(1, 0, 0), label='real')
+    plot(x_appr, y_appr, 'go', color=(0, 0, 1), label='approximation')
     legend(loc='upper right')
 
     show()
 
-class Search_Min(object):
-    def __init__(self, x, y, Q, fc=None, fs=None, alpha=None, beta=None,\
+
+class SearchMin(object):
+    def __init__(self, x, y, Q, fc=None, fs=None, alpha=None, beta=None, \
                  fc_c=None, fs_c=None, alpha_c=None, beta_c=None):
         """
         init object
@@ -36,8 +39,8 @@ class Search_Min(object):
         self.fs = fs
         self.alpha = alpha
         self.beta = beta
-        self.params = self.set_params() # params will be initial points in minimization
-        assert(self.params.size == self.Q*4)
+        self.params = self.set_params()  # params will be initial points in minimization
+        assert (self.params.size == self.Q * 4)
         self.alpha_c = alpha_c
         self.beta_c = beta_c
         self.fc_c = fc_c
@@ -47,7 +50,6 @@ class Search_Min(object):
             self.fc_c = np.array([None, None])
         if fs_c is None:
             self.fs_c = np.array([None, None])
-
 
     def set_params(self):
         """
@@ -61,15 +63,14 @@ class Search_Min(object):
         concatenate in tuple constraint for all params:fc, fs, alpha and beta
         :return: tuple constraints
         """
-        fc_c = np.tile(self.fc_c, (self.Q,1))
-        fs_c = np.tile(self.fs_c, (self.Q,1))
-        a_c = np.tile(self.alpha_c, (self.Q,1))
-        b_c = np.tile(self.beta_c, (self.Q,1))
-        #return tuple(map(tuple,np.vstack((fc_c, fs_c, a_c, b_c)).tolist()))
+        fc_c = np.tile(self.fc_c, (self.Q, 1))
+        fs_c = np.tile(self.fs_c, (self.Q, 1))
+        a_c = np.tile(self.alpha_c, (self.Q, 1))
+        b_c = np.tile(self.beta_c, (self.Q, 1))
+        # return tuple(map(tuple,np.vstack((fc_c, fs_c, a_c, b_c)).tolist()))
         return np.vstack((fc_c, fs_c, a_c, b_c)).tolist()
 
-
-    #not used
+    # not used
     def y_x(self):
         def y_k_x(self, x):
             """
@@ -82,10 +83,10 @@ class Search_Min(object):
             n_beta = np.tile(self.beta, shape)
             n_a_x = x[:, np.newaxis] * n_alpha
             n_b_x = x[:, np.newaxis] * n_beta
-            return np.sum(self.fc * np.cos(n_b_x) * np.exp(-n_a_x) + self.fs * np.sin(n_b_x)\
+            return np.sum(self.fc * np.cos(n_b_x) * np.exp(-n_a_x) + self.fs * np.sin(n_b_x) \
                           * np.exp(-n_a_x), axis=1)
 
-        def derivate_x(self,x):
+        def derivate_x(self, x):
             """
             derivate y_k(or model) at point x
             :param x: ndarray
@@ -96,14 +97,14 @@ class Search_Min(object):
             n_beta = np.tile(self.beta, shape)
             n_a_x = x[:, np.newaxis] * n_alpha
             n_b_x = x[:, np.newaxis] * n_beta
-            return np.sum(((-self.fc)*self.beta*np.sin(n_b_x)+\
-                          self.fs*self.beta*np.cos(n_b_x)+
-                          (-self.alpha)*self.fc*np.cos(n_b_x)+\
-                          (-self.alpha)*self.fs*np.sin(n_b_x))*\
-                          np.exp(-n_a_x), axis = 1)
+            return np.sum(((-self.fc) * self.beta * np.sin(n_b_x) + \
+                           self.fs * self.beta * np.cos(n_b_x) +
+                           (-self.alpha) * self.fc * np.cos(n_b_x) + \
+                           (-self.alpha) * self.fs * np.sin(n_b_x)) * \
+                          np.exp(-n_a_x), axis=1)
 
-        def fun_x_sum_squares(self,x):
-            return (self.y - self.y_k(x))**2
+        def fun_x_sum_squares(self, x):
+            return (self.y - self.y_k(x)) ** 2
 
         def derivate_x_sum_squares(self, x):
             return 2 * (self.y - self.y_k(x)) * self.derivate_x(x)
@@ -138,6 +139,7 @@ class Search_Min(object):
         [0]: y; [1]:y'; [2]:y,y'
         :return:
         """
+
         def y_k_params(params):
             """
             eval y_k at params
@@ -145,7 +147,7 @@ class Search_Min(object):
             :return: derived y_k at point params
             """
             [fc, fs, alpha, beta] = np.split(params, 4)
-            assert(fc.size==fs.size==alpha.size==beta.size)
+            assert (fc.size == fs.size == alpha.size == beta.size)
             shape = (self.N, 1)
             n_alpha = np.tile(alpha, shape)
             n_beta = np.tile(beta, shape)
@@ -174,24 +176,23 @@ class Search_Min(object):
 
         return y_k_params, dy_k_params
 
-
     def sum_squered(self):
 
         def f_params_sum_squares(params):
-            return np.sum((self.y-self.y_params()[0](params))**2)
+            return np.sum((self.y - self.y_params()[0](params)) ** 2)
 
         def df_params_sum_squares(params):
             y_k = self.y_params()[0](params)
-            return np.sum(2*(y_k-self.y)[:,np.newaxis]*self.y_params()[1](params), axis = 0)
+            return np.sum(2 * (y_k - self.y)[:, np.newaxis] * self.y_params()[1](params), axis=0)
 
         def f_df_params_sum_squares(params):
             y_k = self.y_params()[0](params)
-            return np.sum((self.y-y_k)**2), \
-                   np.sum(2*(y_k-self.y)[:,np.newaxis]*self.y_params()[1](params), axis = 0)
+            return np.sum((self.y - y_k) ** 2), \
+                   np.sum(2 * (y_k - self.y)[:, np.newaxis] * self.y_params()[1](params), axis=0)
 
         return f_params_sum_squares, df_params_sum_squares, f_df_params_sum_squares
 
-###################### METHODS#########################
+    ###################### METHODS#########################
     def min_basinhopping(self):
         """
         Find the global minimum of a function using the basin-hopping algorithm
@@ -204,6 +205,7 @@ class Search_Min(object):
 
         def print_fun(x, f, accepted):
             print("at minimum %.4f accepted %d" % (f, int(accepted)))
+
         res = basinhopping(self.sum_squered()[2], self.params, niter=300, \
                            minimizer_kwargs=minimizer_kwargs, stepsize=0.05, callback=print_fun)
 
@@ -215,16 +217,17 @@ class Search_Min(object):
         Minimization of scalar function of one or more variables using the Nelder-Mead algorithm.
         :return:
         """
+
         def print_fun(x):
-            print("at minimum {}",(self.y_params()[0](x)))
+            print("at minimum {}", (self.y_params()[0](x)))
+
         res = minimize(self.sum_squered()[0], self.params, method='Nelder-Mead', callback=print_fun,
-                       options={'maxiter': 10 ** 5, 'maxfev': 10 ** 5, 'disp': True},tol=10**-2)
+                       options={'maxiter': 10 ** 5, 'maxfev': 10 ** 5, 'disp': True}, tol=10 ** -2)
         return res
 
-
     def min_fmin_bfgs(self):
-        res = fmin_bfgs(self.sum_squered()[0], self.params,self.sum_squered()[1] ,\
-                        disp = True, maxiter = 200)
+        res = fmin_bfgs(self.sum_squered()[0], self.params, self.sum_squered()[1], \
+                        disp=True, maxiter=200)
         return res
 
     def min_bfgs(self):
@@ -233,11 +236,13 @@ class Search_Min(object):
         :return:
         """
         jac = self.sum_squered()[1]
+
         def print_fun(x):
-            print("at minimum {}",(self.y_params()[0](x)))
+            print("at minimum {}", (self.y_params()[0](x)))
+
         res = minimize(self.sum_squered()[0], self.params, method='BFGS', callback=print_fun,
                        jac=jac,
-                       options={'maxiter': 10 ** 5, 'maxfev': 10 ** 5, 'disp': True},tol=10**-2)
+                       options={'maxiter': 10 ** 5, 'maxfev': 10 ** 5, 'disp': True}, tol=10 ** -2)
         return res
 
 
@@ -251,12 +256,14 @@ def test_yk_x_derivate():
     alpha = -eigenvalues.real
     beta = eigenvalues.imag
 
-    min = Search_Min(x, y, 30, f_cc, f_ss, alpha, beta)
-    print(y[:4]==min.y_x()[0](x)[:4],y[:4],min.y_x()[0](x)[:4])
-    #[ True  True False False] [-7.96501738 -4.38905442 -1.88638799 -0.62852533] [-7.96501738 -4.38905442 -1.88638799 -0.62852533]
+    min = SearchMin(x, y, 30, f_cc, f_ss, alpha, beta)
+    print(y[:4] == min.y_x()[0](x)[:4], y[:4], min.y_x()[0](x)[:4])
+    # [ True  True False False] [-7.96501738 -4.38905442 -1.88638799 -0.62852533] [-7.96501738 -4.38905442 -1.88638799 -0.62852533]
     print(min.y_x()[1](x).shape, min.y_x()[1](x)[:5])
-    #(500,) [ 48.92306936  38.87632396  23.29505891   8.75301637  -0.28295399]
-#test_yk_derivate()
+    # (500,) [ 48.92306936  38.87632396  23.29505891   8.75301637  -0.28295399]
+
+
+# test_yk_derivate()
 
 def test_methods():
     eigenvalues = np.load('lab1_data/points.npy')
@@ -268,34 +275,30 @@ def test_methods():
     alpha = -eigenvalues.real
     beta = eigenvalues.imag
 
-    Q=10
+    Q = 10
     np.random.seed(0)
-    alpha = np.random.random(Q)*7
-    beta = np.random.random(Q)*10
+    alpha = np.random.random(Q) * 7
+    beta = np.random.random(Q) * 10
 
-    min = Search_Min(x, y, Q, f_cc[:Q], f_ss[:Q], alpha, beta,\
-                     #fc_c=np.array([-1.2,1.2]), fs_c=np.array([-1.2,1.2]),\
-                     alpha_c=np.array([0,7]), beta_c=np.array([0,10]))
+    min = SearchMin(x, y, Q, f_cc[:Q], f_ss[:Q], alpha, beta, \
+                    # fc_c=np.array([-1.2,1.2]), fs_c=np.array([-1.2,1.2]),\
+                     alpha_c=np.array([0, 7]), beta_c=np.array([0, 10]))
     res = min.min_basinhopping()
     y_appr = min.y_params()[0](res.x)
     lamb = res.x
 
-    #res = min.min_neldermead()
-    #y_appr = min.y_params()[0](res.x)
+    # res = min.min_neldermead()
+    # y_appr = min.y_params()[0](res.x)
 
-    #res= min.min_fmin_bfgs()
-    #y_appr = min.y_params()[0](res)
+    # res= min.min_fmin_bfgs()
+    # y_appr = min.y_params()[0](res)
 
-    #res = min.min_bfgs()
-    #y_appr = min.y_params()[0](res.x)
+    # res = min.min_bfgs()
+    # y_appr = min.y_params()[0](res.x)
 
     plot_y(np.arange(0, y.size, 1), y, y_appr)
-    plot_lambda(-eigenvalues[eigenvalues.imag>=0].real, eigenvalues[eigenvalues.imag>=0].imag, lamb[2*Q:3*Q], lamb[3*Q:])
+    plot_lambda(-eigenvalues[eigenvalues.imag >= 0].real, eigenvalues[eigenvalues.imag >= 0].imag, lamb[2 * Q:3 * Q],
+                lamb[3 * Q:])
+
+
 test_methods()
-
-
-
-
-
-
-
