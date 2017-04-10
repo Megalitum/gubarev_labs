@@ -1,5 +1,5 @@
 from pylab import *
-from scipy import optimize
+from scipy import optimize, linalg
 import seaborn as sns
 import itertools
 from model import ObservableSystem
@@ -53,6 +53,31 @@ def perform_approximaiton(domain, max_q, type='l2'):
         print("Status: ", best_sol.message)
         print("f, f':", cost_func(best_sol.x))
         yield best_sol
+
+def Gankels_matrix(values):
+    values = atleast_1d(values)
+    assert(values.size % 2 == 0)
+    k = values.size // 2
+    m = zeros((k, k))
+    for i in range(k):
+        m[i, :] = values[i:i+k]
+    return m
+
+def svd_r(matrix, q):
+    qr, sr, vr_t = linalg.svd(matrix)
+    reduced_sr = sr[0:q]
+    reduced_m_sr = diag(reduced_sr)
+    reduced_qr = qr[:,0:q]
+    reduced_vr_t = vr_t[0:q, :]
+    return reduced_qr, reduced_sr, reduced_vr_t
+
+def matrix_reduction(values, q, delta):
+    matrix = Gankels_matrix(values)
+    reduced_qr, reduced_ser, reduced_vr_t = svd_r(matrix, q)
+    # g1, g2 = generate_params(reduced_qr)
+    # b, residues, rank, s = scipy.linalg.lstsq(g1, g2)
+    b_log_eigenvalues = log(linalg.eigvals(b)) / delta
+    return b_log_eigenvalues
 
 max_q = 8
 N = 500
