@@ -3,7 +3,7 @@ from collections import Counter
 
 
 class ObservableSystem(object):
-    def __init__(self, eigenvalues=None):
+    def __init__(self, eigenvalues=None, **kwargs):
         if eigenvalues is None:
             self.eigenvalues = load('lab1_data/points.npy')
             self.f_cc = load('lab1_data/f_c.npy')
@@ -13,7 +13,10 @@ class ObservableSystem(object):
             cnt = Counter(eigenvalues)
             unique_eigenvalues = cnt.keys()
             eigen_count = len(unique_eigenvalues)
-            f_c, f_s = self.generate_f((2, eigen_count))
+            if 'f_vals' in kwargs:
+                f_c, f_s = kwargs['f_vals']
+            else:
+                f_c, f_s = self.generate_f((2, eigen_count))
             self.eigenvalues = concatenate(tuple(repeat(value, cnt[value]) for value in unique_eigenvalues))
             self.f_cc = concatenate(tuple(repeat(f_c[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
             self.f_ss = concatenate(tuple(repeat(f_s[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
