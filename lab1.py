@@ -5,6 +5,7 @@ import seaborn as sns
 import itertools
 from model import ObservableSystem
 
+# TODO: add iterative SVD algorithm
 # TODO: add more sophisticated initial point prediction
 # TODO: add smoothing factor (e.g. build smoothing spline and call optimization on first approximation)
 # TODO: add current error roots calculation to predict most relevant harmonic component
@@ -53,21 +54,21 @@ def perform_approximaiton(domain, max_q, type='l2'):
         yield best_sol
 
 
-def find_parameters_svd(delta, response, q=10):
+def find_parameters_svd(delta, response, q=5):
     assert response.ndim == 1
     first_row_size = response.size // 2
     h_matrix = hankel(response[0:first_row_size], response[-first_row_size:])
     u, sigma, _ = linalg.svd(h_matrix)
     u = u[:, :q]
-    sigma = diag(sqrt(sigma[:q]))
-    gamma_matrix = u @ sigma
+    # sigma = diag(sqrt(sigma[:q]))
+    gamma_matrix = u #@ sigma
     a_exp, residues, rank, s = linalg.lstsq(gamma_matrix[:-1], gamma_matrix[1:])
     return log(linalg.eigvals(a_exp)) / delta
 
 
 observable = ObservableSystem()
 max_q = 8
-N = 500
+N = 100
 domain = arange(1, N + 1, 1)
 result = None
 norm_type = 'l2'
@@ -76,6 +77,9 @@ eig_vals = find_parameters_svd(observable.delta, resp)
 approx_observable = ObservableSystem(eig_vals, f_vals=(observable.f_cc, observable.f_ss))
 scatter(observable.eigenvalues.real, observable.eigenvalues.imag, c='r', marker='+')
 scatter(real(approx_observable.eigenvalues), imag(approx_observable.eigenvalues), marker='x')
+figure()
+plot(domain, resp, 'r')
+plot(domain, approx_observable(domain))
 show()
 exit(0)
 for q, solution in enumerate(perform_approximaiton(domain, max_q, norm_type)):
