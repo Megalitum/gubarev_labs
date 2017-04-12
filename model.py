@@ -3,20 +3,17 @@ from collections import Counter
 
 
 class ObservableSystem(object):
-    def __init__(self, eigenvalues=None, **kwargs):
+    def __init__(self, eigenvalues=None):
         if eigenvalues is None:
             self.eigenvalues = load('lab1_data/points.npy')
-            self.f_cc = load('lab1_data/f_c.npy')
-            self.f_ss = load('lab1_data/f_s.npy')
+            self.f_cc = np.ones_like(self.eigenvalues) # load('lab1_data/f_c.npy')
+            self.f_ss = np.ones_like(self.eigenvalues) # load('lab1_data/f_s.npy')
         else:
             # TODO: Fix f generation bug (mult by taylor).
             cnt = Counter(eigenvalues)
             unique_eigenvalues = cnt.keys()
             eigen_count = len(unique_eigenvalues)
-            if 'f_vals' in kwargs:
-                f_c, f_s = kwargs['f_vals']
-            else:
-                f_c, f_s = self.generate_f((2, eigen_count))
+            f_c, f_s = self.generate_f((2, eigen_count))
             self.eigenvalues = concatenate(tuple(repeat(value, cnt[value]) for value in unique_eigenvalues))
             self.f_cc = concatenate(tuple(repeat(f_c[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
             self.f_ss = concatenate(tuple(repeat(f_s[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
@@ -31,7 +28,7 @@ class ObservableSystem(object):
         """
         Generates random numbers of given size uniformly in (-1, -0.9) join (0.9, 1).
         """
-        arr = random.uniform(0.9, 1.1, sizes)
+        arr = np.random.uniform(0.9, 1.1, sizes)
         arr[arr > 1] -= 2
         return arr
 
@@ -51,7 +48,7 @@ class ObservableSystem(object):
         x_b = x[:, newaxis] * b_d
         coef = params[:q] * np.cos(x_b) + params[q:2 * q] * np.sin(x_b)
         exp_val = np.exp(- x[:, newaxis] * a_d)
-        return sum(multiply(coef, exp_val), axis=1)
+        return real(sum(multiply(coef, exp_val), axis=1))
 
     @staticmethod
     def unit_response(x, params, delta=0.05, jac=True):
@@ -73,7 +70,7 @@ class ObservableSystem(object):
         dfs = exp_val * sin(x_b)
         da = - exp_coef * x_scaled
         db = exp_val * (params[1] * np.cos(x_b) - params[0] * np.sin(x_b)) * x_scaled
-        return exp_coef * exp_val, vstack((dfc, dfs, da, db))
+        return real(exp_coef * exp_val), real(vstack((dfc, dfs, da, db)))
 
     def calculate_delta(self):
         return min(2 / (5 * max(abs(self.eigenvalues.real))), np.pi / (5 * max(abs(self.eigenvalues.imag))))
@@ -81,3 +78,17 @@ class ObservableSystem(object):
     def __call__(self, x):
         params = concatenate((self.f_cc, self.f_ss, -self.eigenvalues.real, self.eigenvalues.imag))
         return self.response(x, params, self.delta)
+
+
+class SimplifiedObservableSystem(ObservableSystem):
+    def __init__(self, eigenvalues=None):
+        if eigenvalues is None:
+            eigenvalues = load('lab1_data/points.npy')
+        super().__init__(eigenvalues)
+
+    @staticmethod
+    def generate_f(sizes):
+        """
+        Generates random numbers of given size uniformly in (-1, -0.9) join (0.9, 1).
+        """
+        return np.ones(sizes)
