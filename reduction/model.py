@@ -3,11 +3,15 @@ from collections import Counter
 
 
 class ObservableSystem(object):
-    def __init__(self, eigenvalues=None):
+    def __init__(self, eigenvalues=None, f_params = None):
         if eigenvalues is None:
             self.eigenvalues = load('lab1_data/points.npy')
-            self.f_cc = np.ones_like(self.eigenvalues) # load('lab1_data/f_c.npy')
-            self.f_ss = np.ones_like(self.eigenvalues) # load('lab1_data/f_s.npy')
+            if f_params is None:
+                self.f_cc = np.ones_like(self.eigenvalues) # load('lab1_data/f_c.npy')
+                self.f_ss = np.ones_like(self.eigenvalues) # load('lab1_data/f_s.npy')
+            else:
+                self.f_cc = f_params[0]
+                self.f_ss = f_params[1]
         else:
             # TODO: Fix f generation bug (mult by taylor).
             cnt = Counter(eigenvalues)
