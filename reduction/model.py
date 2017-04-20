@@ -17,25 +17,22 @@ def generate_params(count_real, count_imaginary, count_mixed, bounds_real, bound
 
 
 class ObservableSystem(object):
-    def __init__(self, eigenvalues=None, f_params = None):
-        if eigenvalues is None:
-            self.eigenvalues, (self.f_cc, self.f_ss) = generate_params(4, 6, 20, (-8, 8), ())
-            self.eigenvalues = load('lab1_data/points.npy')
-            if f_params is None:
-                self.f_cc = load('lab1_data/f_c.npy')
-                self.f_ss = load('lab1_data/f_s.npy')
-            else:
-                self.f_cc = f_params[0]
-                self.f_ss = f_params[1]
+    def __init__(self, **kwargs):
+        eigenvalues = kwargs.get('eigenvalues', None)
+        f_params = kwargs.get('f_params', None)
+        load_path = kwargs.get('path', None)
+        if eigenvalues is None and load_path is None:
+            self.eigenvalues, (self.f_cc, self.f_ss) = generate_params(4, 6, 20, (-8, 0), (-8, 8), self.generate_f)
+        elif load_path is not None:
+            self.eigenvalues = load(load_path + '/points.npy')
+            self.f_cc = load(load_path + '/f_c.npy')
+            self.f_ss = load(load_path + '/f_s.npy')
         else:
-            # TODO: Fix f generation bug (mult by taylor).
-            cnt = Counter(eigenvalues)
-            unique_eigenvalues = cnt.keys()
-            eigen_count = len(unique_eigenvalues)
-            f_c, f_s = self.generate_f((2, eigen_count))
-            self.eigenvalues = concatenate(tuple(repeat(value, cnt[value]) for value in unique_eigenvalues))
-            self.f_cc = concatenate(tuple(repeat(f_c[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
-            self.f_ss = concatenate(tuple(repeat(f_s[i], cnt[value]) for i, value in enumerate(unique_eigenvalues)))
+            self.eigenvalues = eigenvalues
+            if f_params is None:
+                self.f_cc, self.f_ss = self.generate_f(len(eigenvalues))
+            else:
+                self.f_cc, self.f_ss = f_params
         self.delta = self.calculate_delta()
         print('Eigenvalues: ', self.eigenvalues)
         print('f_c: ', self.f_cc)
@@ -100,10 +97,8 @@ class ObservableSystem(object):
 
 
 class SimplifiedObservableSystem(ObservableSystem):
-    def __init__(self, eigenvalues=None):
-        if eigenvalues is None:
-            eigenvalues = load('lab1_data/points.npy')
-        super().__init__(eigenvalues)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     @staticmethod
     def generate_f(count):

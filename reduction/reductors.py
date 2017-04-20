@@ -29,14 +29,14 @@ class SVDReductor(Reductor):
         gamma_matrix = SVDReductor.calculate_gamma_matrix(response, q)
         a_exp = linalg.solve(gamma_matrix[:-1].T @ gamma_matrix[:-1], gamma_matrix[:-1].T @ gamma_matrix[1:])
         params = np.log(linalg.eigvals(a_exp)) / self.delta
-        return SimplifiedObservableSystem(params)
+        return SimplifiedObservableSystem(eigenvalues=params)
 
     def generate_lstsq(self, domain, response, q):
         gamma_matrix = SVDReductor.calculate_gamma_matrix(response, q)
         a_exp, residues, rank, s = linalg.lstsq(gamma_matrix[:-1], gamma_matrix[1:])
         # print('LS results: ', residues, rank, s)
         params = np.log(linalg.eigvals(a_exp)) / self.delta
-        return SimplifiedObservableSystem(params)
+        return SimplifiedObservableSystem(eigenvalues=params)
 
 # TODO: add more sophisticated initial point prediction
 
@@ -112,4 +112,4 @@ class ResponseFitReductor(Reductor):
         eigenvalues = np.concatenate((-result[2] + result[3] * 1j, -result[2] - result[3] * 1j))
         f_cc = np.tile(result[0], 2)
         f_ss = np.tile(result[1], 2)
-        return ObservableSystem(eigenvalues, (f_cc, f_ss))
+        return ObservableSystem(eigenvalues=eigenvalues, f_params=(f_cc, f_ss))

@@ -10,7 +10,7 @@ from reduction.reductors import ResponseFitReductor
 
 def test_svd():
     from reduction.reductors import SVDReductor
-    observable = SimplifiedObservableSystem()
+    observable = SimplifiedObservableSystem(path='lab1_data')
     N = 500
     domain = arange(1, N + 1, 1)
     resp = observable(domain)
@@ -24,7 +24,7 @@ def test_svd():
     show()
 
 def test_response_fit():
-    observable = ObservableSystem()
+    observable = ObservableSystem(path='lab1_data')
     max_q = 10
     N = 500
     domain = arange(1, N + 1, 1)
@@ -45,7 +45,7 @@ def test_response_fit():
     reductor = ResponseFitReductor(observable.delta, callback=callback)
     reduced_model = reductor.generate_model(norm_type, domain, y_real, max_q)
     figure()
-    scatter(observable.eigenvalues.real, observable.eigenvalues.imag, color='r')
+    scatter(observable.eigenvalues.real, observable.eigenvalues.imag, c='r', marker='+')
     scatter(reduced_model.eigenvalues.real, reduced_model.eigenvalues.imag, marker='x')
     figure()
     plot(domain, observable(domain), 'r')
