@@ -2,13 +2,28 @@ from pylab import *
 from collections import Counter
 
 
+def generate_params(count_real, count_imaginary, count_mixed, bounds_real, bounds_imaginary, f_generator):
+        assert (count_imaginary % 2 == 0) and (count_mixed % 2 == 0), "Complex eigenvalues must be paired."
+        eig_real = random.uniform(bounds_real[0], bounds_real[1], count_real)
+        eig_imaginary = random.uniform(bounds_imaginary[0], bounds_imaginary[1], count_imaginary // 2) * 1j
+        eig_imaginary = np.tile(eig_imaginary, 2)
+        mean_mixed = [np.mean(bounds_real), np.mean(bounds_imaginary)]
+        scale_mixed = [np.std(bounds_real), np.std(bounds_imaginary)]
+        eig_mixed = random.normal(mean_mixed, scale_mixed, count_mixed // 2)
+        eig_mixed = np.tile(eig_mixed, 2)
+        f_vals = np.concatenate((f_generator(count_real), np.tile(f_generator(count_imaginary // 2), 2),
+                                 np.tile(f_generator(count_mixed // 2), 2)), axis=1)
+        return np.concatenate((eig_real, eig_imaginary, eig_mixed)), f_vals
+
+
 class ObservableSystem(object):
     def __init__(self, eigenvalues=None, f_params = None):
         if eigenvalues is None:
+            self.eigenvalues, (self.f_cc, self.f_ss) = generate_params(4, 6, 20, (-8, 8), ())
             self.eigenvalues = load('lab1_data/points.npy')
             if f_params is None:
-                self.f_cc = np.ones_like(self.eigenvalues) # load('lab1_data/f_c.npy')
-                self.f_ss = np.ones_like(self.eigenvalues) # load('lab1_data/f_s.npy')
+                self.f_cc = load('lab1_data/f_c.npy')
+                self.f_ss = load('lab1_data/f_s.npy')
             else:
                 self.f_cc = f_params[0]
                 self.f_ss = f_params[1]
@@ -28,11 +43,11 @@ class ObservableSystem(object):
         print('Delta: ', self.delta)
 
     @staticmethod
-    def generate_f(sizes):
+    def generate_f(count):
         """
         Generates random numbers of given size uniformly in (-1, -0.9) join (0.9, 1).
         """
-        arr = np.random.uniform(0.9, 1.1, sizes)
+        arr = np.random.uniform(0.9, 1.1, (2, count))
         arr[arr > 1] -= 2
         return arr
 
@@ -91,8 +106,8 @@ class SimplifiedObservableSystem(ObservableSystem):
         super().__init__(eigenvalues)
 
     @staticmethod
-    def generate_f(sizes):
+    def generate_f(count):
         """
         Generates random numbers of given size uniformly in (-1, -0.9) join (0.9, 1).
         """
-        return np.ones(sizes)
+        return np.ones((2, count))

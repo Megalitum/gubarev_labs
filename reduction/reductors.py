@@ -61,11 +61,15 @@ class ResponseFitReductor(Reductor):
         if type == 'l_inf':
             def cost_func(vec):
                 approx = ObservableSystem.unit_response(domain, vec, delta, False)
+                approx += ObservableSystem.unit_response(domain, vec * np.array([1,1,1,-1]), delta, False)
                 return np.amax(abs(noisy - approx)) / domain.shape[0]
             return cost_func
         elif type == 'l2':
             def cost_func(vec):
                 approx, jac = ObservableSystem.unit_response(domain, vec, delta, True)
+                approx2, jac2 = ObservableSystem.unit_response(domain, vec* np.array([1,1,1,-1]), delta, True)
+                approx += approx2
+                jac += jac2 * np.array([[1],[1],[1],[-1]])
                 return np.sum((noisy - approx) ** 2), 2 * ((approx - noisy) * jac).sum(axis=1)
             return cost_func
         else:
@@ -75,7 +79,7 @@ class ResponseFitReductor(Reductor):
         noisy = response[:]
         basic_minimizer_args = {"method": "SLSQP", "jac": norm_type == 'l2'}
         last_sol = None
-        for q in range(max_q):
+        for q in range(max_q // 2):
             cost_func = ResponseFitReductor.generate_cost_func(domain, noisy,
                                                                norm_type, self.delta)
             best_sol = None
@@ -87,10 +91,11 @@ class ResponseFitReductor(Reductor):
                 sol = optimize.basinhopping(cost_func, start_point, minimizer_kwargs=minimizer_kwargs)
                 if best_sol is None or sol.fun < best_sol.fun:
                     best_sol = sol
-            noisy -= ObservableSystem.response(domain, best_sol.x, self.delta)
+            last_sol = best_sol.x
+            noisy -= ObservableSystem.response(domain, last_sol, self.delta)
+            noisy -= ObservableSystem.response(domain, last_sol * np.array([1,1,1,-1]), self.delta)
             print("Status: ", best_sol.message)
             print("f, f':", cost_func(best_sol.x))
-            last_sol = best_sol.x
             yield best_sol
 
     def generate_l2(self, domain, response, max_q):
@@ -103,5 +108,8 @@ class ResponseFitReductor(Reductor):
                 result = np.append(result, solution.x[:, np.newaxis], axis=1)
             y_appr = ObservableSystem.response(domain, result.ravel(), self.delta)
             if self.callback is not None:
-                self.callback(y_appr, q)
-        return ObservableSystem(-result[2] + result[3] * 1j, (result[0], result[1]))
+                self.callback(y_appr, q*2)
+        eigenvalues = np.concatenate((-result[2] + result[3] * 1j, -result[2] - result[3] * 1j))
+        f_cc = np.tile(result[0], 2)
+        f_ss = np.tile(result[1], 2)
+        return ObservableSystem(eigenvalues, (f_cc, f_ss))

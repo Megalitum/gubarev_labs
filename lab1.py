@@ -25,7 +25,7 @@ def test_svd():
 
 def test_response_fit():
     observable = ObservableSystem()
-    max_q = 8
+    max_q = 10
     N = 500
     domain = arange(1, N + 1, 1)
     norm_type = 'l2'
@@ -47,6 +47,9 @@ def test_response_fit():
     figure()
     scatter(observable.eigenvalues.real, observable.eigenvalues.imag, color='r')
     scatter(reduced_model.eigenvalues.real, reduced_model.eigenvalues.imag, marker='x')
+    figure()
+    plot(domain, observable(domain), 'r')
+    plot(domain, reduced_model(domain), 'g')
     show()
 
 if __name__ == '__main__':
