@@ -4,15 +4,16 @@ from collections import Counter
 
 def generate_params(count_real, count_imaginary, count_mixed, bounds_real, bounds_imaginary, f_generator):
         assert (count_imaginary % 2 == 0) and (count_mixed % 2 == 0), "Complex eigenvalues must be paired."
-        eig_real = random.uniform(bounds_real[0], bounds_real[1], count_real)
-        eig_imaginary = random.uniform(bounds_imaginary[0], bounds_imaginary[1], count_imaginary // 2) * 1j
-        eig_imaginary = np.tile(eig_imaginary, 2)
+        eig_real = np.random.uniform(bounds_real[0], bounds_real[1], count_real)
+        eig_imaginary = np.random.uniform(bounds_imaginary[0], bounds_imaginary[1], count_imaginary // 2) * 1j
         mean_mixed = [np.mean(bounds_real), np.mean(bounds_imaginary)]
         scale_mixed = [np.std(bounds_real), np.std(bounds_imaginary)]
-        eig_mixed = random.normal(mean_mixed, scale_mixed, count_mixed // 2)
-        eig_mixed = np.tile(eig_mixed, 2)
-        f_vals = np.concatenate((f_generator(count_real), np.tile(f_generator(count_imaginary // 2), 2),
-                                 np.tile(f_generator(count_mixed // 2), 2)), axis=1)
+        eig_mixed = np.random.normal(mean_mixed, scale_mixed, size=(count_mixed // 2, 2))
+        eig_mixed[:, 0] = np.clip(eig_mixed[:, 0], *bounds_real)
+        eig_mixed[:, 1] = np.clip(eig_mixed[:, 1], *bounds_imaginary)
+        eig_mixed = eig_mixed[:,0] + eig_mixed[:,1] * 1j
+        f_vals = np.concatenate((f_generator(count_real), f_generator(count_imaginary // 2),
+                                 f_generator(count_mixed // 2)), axis=1)
         return np.concatenate((eig_real, eig_imaginary, eig_mixed)), f_vals
 
 
@@ -20,9 +21,10 @@ class ObservableSystem(object):
     def __init__(self, **kwargs):
         eigenvalues = kwargs.get('eigenvalues', None)
         f_params = kwargs.get('f_params', None)
+        delta = kwargs.get('delta', None)
         load_path = kwargs.get('path', None)
         if eigenvalues is None and load_path is None:
-            self.eigenvalues, (self.f_cc, self.f_ss) = generate_params(4, 6, 20, (-8, 0), (-8, 8), self.generate_f)
+            self.eigenvalues, (self.f_cc, self.f_ss) = generate_params(4, 6, 20, (-8, 0), (0, 8), self.generate_f)
         elif load_path is not None:
             self.eigenvalues = load(load_path + '/points.npy')
             self.f_cc = load(load_path + '/f_c.npy')
@@ -33,7 +35,16 @@ class ObservableSystem(object):
                 self.f_cc, self.f_ss = self.generate_f(len(eigenvalues))
             else:
                 self.f_cc, self.f_ss = f_params
-        self.delta = self.calculate_delta()
+        sorted_eig = np.argsort(self.eigenvalues.imag)
+        self.eigenvalues = self.eigenvalues[sorted_eig]
+        self.f_cc = self.f_cc[sorted_eig]
+        self.f_ss = self.f_ss[sorted_eig]
+        self.count_real = np.sum(np.isclose(self.eigenvalues.imag, 0))
+        print('Real eigenvalues: : ', self.count_real)
+        if delta is None:
+            self.delta = self.calculate_delta()
+        else:
+            self.delta = delta
         print('Eigenvalues: ', self.eigenvalues)
         print('f_c: ', self.f_cc)
         print('f_s: ', self.f_ss)
@@ -90,6 +101,12 @@ class ObservableSystem(object):
 
     def calculate_delta(self):
         return min(2 / (5 * max(abs(self.eigenvalues.real))), np.pi / (5 * max(abs(self.eigenvalues.imag))))
+
+    @property
+    def all_eigenvalues(self):
+        complex_eigenvalues = np.tile(self.eigenvalues[self.count_real:], (2, 1))
+        complex_eigenvalues[1].imag *= -1
+        return np.concatenate((self.eigenvalues[:self.count_real],*complex_eigenvalues))
 
     def __call__(self, x):
         params = concatenate((self.f_cc, self.f_ss, -self.eigenvalues.real, self.eigenvalues.imag))
