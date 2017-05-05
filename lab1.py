@@ -5,6 +5,7 @@ from scipy import optimize
 
 from reduction.model import ObservableSystem, SimplifiedObservableSystem
 from reduction.reductors import ResponseFitReductor
+from reduction.stats import response_fit_report
 
 
 def test_svd(method):
@@ -15,13 +16,8 @@ def test_svd(method):
     resp = observable(domain)
     reductor = SVDReductor(observable.delta)
     approx_observable = reductor.generate_model(method, domain, resp, 14)
-    figure()
-    scatter(observable.all_eigenvalues.real, observable.all_eigenvalues.imag, c='r', marker='+')
-    scatter(real(approx_observable.all_eigenvalues), imag(approx_observable.all_eigenvalues), marker='x')
-    figure()
-    plot(domain, resp, 'r')
-    plot(domain, approx_observable(domain))
-    show()
+    response_fit_report(resp, approx_observable(domain), 'svd')
+
 
 
 def test_response_fit(norm_type):

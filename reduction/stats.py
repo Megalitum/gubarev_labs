@@ -1,4 +1,10 @@
 import timeit
+import sklearn.metrics.regression as reg_metrics
+
+
+def response_fit_report(reference, response, name):
+    r2 = reg_metrics.r2_score(reference, response)
+    print(r2)
 
 
 def print_stats(method, T, err_gen, eps, delta, h_low, h_up, task, times):
