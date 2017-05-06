@@ -1,10 +1,26 @@
 import timeit
 import sklearn.metrics.regression as reg_metrics
+from pylab import *
 
 
-def response_fit_report(reference, response, name):
-    r2 = reg_metrics.r2_score(reference, response)
-    print(r2)
+def eigenvalues_fit_report(eig_ref, eig_est):
+    figure()
+    scatter(eig_ref.real, eig_ref.imag, c='r', marker='+')
+    scatter(eig_ref.real, -eig_ref.imag, c='r', marker='+')
+    scatter(eig_est.real, eig_est.imag, c='b', marker='x')
+    scatter(eig_est.real, -eig_est.imag, c='b', marker='x')
+    show()
+    pass
+
+
+def response_fit_report(resp_ref, resp_est):
+    figure()
+    plot(resp_ref, 'r')
+    plot(resp_est, 'b')
+    r2 = reg_metrics.r2_score(resp_ref, resp_est)
+    mae = reg_metrics.mean_absolute_error(resp_ref, resp_est)
+    mse = reg_metrics.mean_squared_error(resp_ref, resp_est)
+    print(r2, mae, mse)
 
 
 def print_stats(method, T, err_gen, eps, delta, h_low, h_up, task, times):

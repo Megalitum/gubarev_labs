@@ -33,19 +33,32 @@ class MyBounds(object):
 
 class SVDReductor(Reductor):
     @staticmethod
-    def calculate_gamma_matrix(response, q):
+    def calculate_helper_matrices(response, q):
         assert response.ndim == 1
         first_row_size = response.size // 2
         h_matrix = linalg.hankel(response[0:first_row_size], response[-first_row_size:])
-        u, sigma, _ = linalg.svd(h_matrix)
-        return u[:, :q]
+        u, sigma, vh = linalg.svd(h_matrix)
+        multiplier = np.sqrt(sigma[:q])
+        return u[:, :q] * multiplier, multiplier[:, None] * vh[:q]
 
     def generate_lstsq(self, domain, response, q):
-        gamma_matrix = SVDReductor.calculate_gamma_matrix(response, q)
+        gamma_matrix, omega_matrix = SVDReductor.calculate_helper_matrices(response, q)
+        c_vec, b_vec = gamma_matrix[0], omega_matrix[:,0]
         a_exp, residues, rank, s = linalg.lstsq(gamma_matrix[:-1], gamma_matrix[1:])
-        # print('LS results: ', residues, rank, s)
-        params = np.log(linalg.eigvals(a_exp)) / self.delta
-        return SimplifiedObservableSystem(eigenvalues=params, delta=self.delta)
+        w, vr = linalg.eig(a_exp)
+        c_vec = c_vec @ vr
+        b_vec = (linalg.inv(vr) @ b_vec[:, None]).ravel()
+        plain_indices = np.where(w.imag == 0)[0]
+        cosine_indices = np.where(w.imag > 0)[0]
+        sine_indices = cosine_indices + 1  # heuristic
+        f_plain = c_vec[plain_indices] * b_vec[plain_indices]
+        f_cc = c_vec[cosine_indices] * b_vec[cosine_indices] + c_vec[sine_indices] * b_vec[sine_indices]
+        f_ss = (c_vec[cosine_indices] * b_vec[cosine_indices] - c_vec[sine_indices] * b_vec[sine_indices]) * 1j
+        f_cc = np.concatenate((f_plain, f_cc))
+        f_ss = np.concatenate((np.zeros_like(f_plain), f_ss))
+        params = np.log(w[np.concatenate((plain_indices, cosine_indices))]) / self.delta
+        assert params.size == params[params.imag >= 0].size
+        return ObservableSystem(eigenvalues=params, f_params=(f_cc.real, f_ss.real),delta=self.delta)
 
 
 class ResponseFitReductor(Reductor):

@@ -1,22 +1,24 @@
 import itertools
 
 from pylab import *
+import seaborn as sns
 from scipy import optimize
 
 from reduction.model import ObservableSystem, SimplifiedObservableSystem
 from reduction.reductors import ResponseFitReductor
-from reduction.stats import response_fit_report
+from reduction.stats import response_fit_report, eigenvalues_fit_report
 
 
 def test_svd(method):
     from reduction.reductors import SVDReductor
-    observable = SimplifiedObservableSystem(path='lab1_data')
-    N = 250
+    observable = ObservableSystem(path='lab1_data')
+    N = 500
     domain = arange(1, N + 1, 1)
     resp = observable(domain)
     reductor = SVDReductor(observable.delta)
     approx_observable = reductor.generate_model(method, domain, resp, 14)
-    response_fit_report(resp, approx_observable(domain), 'svd')
+    response_fit_report(resp, approx_observable(domain))
+    eigenvalues_fit_report(observable.eigenvalues, approx_observable.eigenvalues)
 
 
 

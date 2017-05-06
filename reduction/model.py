@@ -7,7 +7,7 @@ def generate_params(count_real, count_imaginary, count_mixed, bounds_real, bound
         eig_real = np.random.uniform(bounds_real[0], bounds_real[1], count_real)
         eig_imaginary = np.random.uniform(bounds_imaginary[0], bounds_imaginary[1], count_imaginary // 2) * 1j
         mean_mixed = [np.mean(bounds_real), np.mean(bounds_imaginary)]
-        scale_mixed = [np.std(bounds_real), np.std(bounds_imaginary)]
+        scale_mixed = [np.std(bounds_real) / 2, np.std(bounds_imaginary) / 2]
         eig_mixed = np.random.normal(mean_mixed, scale_mixed, size=(count_mixed // 2, 2))
         eig_mixed[:, 0] = np.clip(eig_mixed[:, 0], *bounds_real)
         eig_mixed[:, 1] = np.clip(eig_mixed[:, 1], *bounds_imaginary)
