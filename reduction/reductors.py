@@ -10,10 +10,15 @@ class Reductor:
     def __init__(self, delta):
         self.delta = delta
 
-    def generate_model(self, method, domain, response, q):
+    def generate_model(self, method, domain, response, q, verbose=False):
         func_name = 'generate_%s' % (method)
         if hasattr(self, func_name) and callable(getattr(self, func_name)):
-            return getattr(self, func_name)(domain, response, q)
+            return getattr(self, func_name)(domain, response, q, verbose)
+
+    @classmethod
+    def available_methods(cls):
+        prefix = "generate_"
+        return [name[len(prefix):] for name in cls.__dict__.keys() if prefix in name]
 
 
 class MyBounds(object):
@@ -41,7 +46,7 @@ class SVDReductor(Reductor):
         multiplier = np.sqrt(sigma[:q])
         return u[:, :q] * multiplier, multiplier[:, None] * vh[:q]
 
-    def generate_lstsq(self, domain, response, q):
+    def generate_lstsq(self, domain, response, q, verbose=False):
         gamma_matrix, omega_matrix = SVDReductor.calculate_helper_matrices(response, q)
         c_vec, b_vec = gamma_matrix[0], omega_matrix[:,0]
         a_exp, residues, rank, s = linalg.lstsq(gamma_matrix[:-1], gamma_matrix[1:])
@@ -70,7 +75,7 @@ class ResponseFitReductor(Reductor):
         self.callback = callback
 
     @staticmethod
-    def generate_cost_func(domain, noisy, type='l2', delta=0.05):
+    def get_cost_func(domain, noisy, type='l2', delta=0.05):
         """
         Cost function builder.
         Assumes vec has (4,) shape.
@@ -92,15 +97,15 @@ class ResponseFitReductor(Reductor):
         else:
             raise NotImplemented()
 
-    def generate_basinhopping_l2(self, domain, response, max_q):
+    def generate_basinhopping_l2(self, domain, response, max_q, verbose=False):
         norm_type = "l2"
         result = np.ndarray(shape=(4,0))
-        noisy = response[:]
+        noisy = np.copy(response)
         basic_minimizer_args = {"method": "SLSQP", "jac": True}
         last_sol = None
         for q in range(max_q // 2):
-            cost_func = ResponseFitReductor.generate_cost_func(domain, noisy,
-                                                               norm_type, self.delta)
+            cost_func = ResponseFitReductor.get_cost_func(domain, noisy,
+                                                          norm_type, self.delta)
             best_sol = None
             for start_point in itertools.combinations_with_replacement([-1, 1], 2):
                 start_point = np.append(start_point, [0,0] if last_sol is None else last_sol[2:4])
@@ -118,27 +123,27 @@ class ResponseFitReductor(Reductor):
                 if best_sol is None or sol.fun < best_sol.fun:
                     best_sol = sol
             last_sol = best_sol.x
-            print("Found solution: ", last_sol)
             noisy -= ObservableSystem.response(domain, last_sol, self.delta)
             result = np.append(result, best_sol.x[:, np.newaxis], axis=1)
             y_appr = ObservableSystem.response(domain, result.ravel(), self.delta)
             if self.callback is not None:
-                self.callback(last_sol, y_appr, q*2)
-            print("Status: ", best_sol.message)
-            print("f, f':", cost_func(best_sol.x))
+                self.callback('basinhopping_l2',last_sol, y_appr, q)
+            if verbose:
+                print("Found solution: ", last_sol)
+                print("Status: ", best_sol.message)
+                print("f, f':", cost_func(last_sol))
         eigenvalues = -result[2] + result[3] * 1j
         f_cc = result[0]
         f_ss = result[1]
         return ObservableSystem(eigenvalues=eigenvalues, f_params=(f_cc, f_ss), delta=self.delta)
 
-
-    def generate_diff_evolution_l_inf(self, domain, response, max_q):
+    def generate_diff_evolution_l_inf(self, domain, response, max_q, verbose=False):
         norm_type = "l_inf"
         result = np.ndarray(shape=(4,0))
-        noisy = response[:]
+        noisy = np.copy(response)
         for q in range(max_q // 2):
-            cost_func = ResponseFitReductor.generate_cost_func(domain, noisy,
-                                                               norm_type, self.delta)
+            cost_func = ResponseFitReductor.get_cost_func(domain, noisy,
+                                                          norm_type, self.delta)
             best_sol = None
             for f_c, f_s in itertools.combinations_with_replacement([-1, 1], 2):
                 bounds = ((max(self.bounds[0][0], f_c - 0.2), min(self.bounds[0][1], f_c + 0.2)),
@@ -150,26 +155,27 @@ class ResponseFitReductor(Reductor):
                 if best_sol is None or sol.fun < best_sol.fun:
                     best_sol = sol
             last_sol = best_sol.x
-            print("Found solution: ", last_sol)
             noisy -= ObservableSystem.response(domain, last_sol, self.delta)
             result = np.append(result, best_sol.x[:, np.newaxis], axis=1)
             y_appr = ObservableSystem.response(domain, result.ravel(), self.delta)
             if self.callback is not None:
-                self.callback(last_sol, y_appr, q*2)
-            print("Status: ", best_sol.message)
-            print("f:", cost_func(best_sol.x))
+                self.callback('diff_evolution', last_sol, y_appr, q)
+            if verbose:
+                print("Found solution: ", last_sol)
+                print("Status: ", best_sol.message)
+                print("f:", cost_func(last_sol))
         eigenvalues = -result[2] + result[3] * 1j
         f_cc = result[0]
         f_ss = result[1]
         return ObservableSystem(eigenvalues=eigenvalues, f_params=(f_cc, f_ss), delta=self.delta)
 
-    def generate_brute_l_inf(self, domain, response, max_q):
+    def generate_brute_l_inf(self, domain, response, max_q, verbose=False):
         norm_type = "l_inf"
         result = np.ndarray(shape=(4,0))
-        noisy = response[:]
+        noisy = np.copy(response)
         for q in range(max_q // 2):
-            cost_func = ResponseFitReductor.generate_cost_func(domain, noisy,
-                                                               norm_type, self.delta)
+            cost_func = ResponseFitReductor.get_cost_func(domain, noisy,
+                                                          norm_type, self.delta)
             best_sol = None
             for f_c, f_s in itertools.combinations_with_replacement([-1, 1], 2):
                 bounds = ((max(self.bounds[0][0], f_c - 0.2), min(self.bounds[0][1], f_c + 0.2)),
@@ -180,13 +186,13 @@ class ResponseFitReductor(Reductor):
                 if best_sol is None or cost_func(sol) < cost_func(best_sol):
                     best_sol = sol
             last_sol = best_sol
-            print("Found solution: ", last_sol)
             noisy -= ObservableSystem.response(domain, last_sol, self.delta)
             result = np.append(result, best_sol[:, np.newaxis], axis=1)
             y_appr = ObservableSystem.response(domain, result.ravel(), self.delta)
             if self.callback is not None:
-                self.callback(last_sol, y_appr, q*2)
-            print("f:", cost_func(best_sol))
+                self.callback('brute', last_sol, y_appr, q)
+            if verbose:
+                print("f:", cost_func(best_sol))
         eigenvalues = -result[2] + result[3] * 1j
         f_cc = result[0]
         f_ss = result[1]
