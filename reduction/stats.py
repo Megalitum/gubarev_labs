@@ -26,19 +26,19 @@ def general_test(observable, reductor, tick_count, reduced_dim, methods=None):
     MSE: {mse}\n""".format(method=method,**fit_report_results)))
 
 
-
 def eigenvalues_fit_report(eig_ref, eig_est):
     figure()
-    scatter(eig_ref.real, eig_ref.imag, c='r', marker='+')
-    scatter(eig_ref.real, -eig_ref.imag, c='r', marker='+')
-    scatter(eig_est.real, eig_est.imag, c='b', marker='x')
-    scatter(eig_est.real, -eig_est.imag, c='b', marker='x')
+    scatter(np.stack((eig_ref.real, eig_ref.real)),
+            np.stack((eig_ref.imag, -eig_ref.imag)), c='black', marker='+', label='input')
+    scatter(np.stack((eig_est.real, eig_est.real)),
+            np.stack((eig_est.imag, -eig_est.imag)), c='black', marker='x', label='output')
+    legend()
 
 
 def response_fit_report(resp_ref, resp_est):
     figure()
-    plot(resp_ref, 'r', linewidth=1, label='$y_k$')
-    plot(resp_est, 'g', linewidth=1, label='$\\tilde y_k$')
+    plot(resp_ref, c='black', linewidth=1, label='$y_k$')
+    plot(resp_est, c='black', linestyle='--', linewidth=1, label='$\\tilde y_k$')
     legend()
     results = {}
     results['r2'] = reg_metrics.r2_score(resp_ref, resp_est)
