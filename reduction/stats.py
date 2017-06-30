@@ -32,7 +32,7 @@ def eigenvalues_fit_report(eig_ref, eig_est):
     xlabel('Re')
     ylabel('Im')
     scatter(np.stack((eig_ref.real, eig_ref.real)),
-            np.stack((eig_ref.imag, -eig_ref.imag)), c='black', marker='o', label='input')
+            np.stack((eig_ref.imag, -eig_ref.imag)), c='white', marker='o', edgecolors='b', label='input')
     scatter(np.stack((eig_est.real, eig_est.real)),
             np.stack((eig_est.imag, -eig_est.imag)), c='black', marker='x', label='output')
     legend()
